@@ -1,36 +1,38 @@
 ﻿using System;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.Threading;
-using DeskApp.ViewModels;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace DeskApp.ViewModels
 {
-    // Hoved ViewModel for mødet
-    public class MainWindowViewModel : ViewModelBase
+    // Vi arver fra ViewModelBase som allerede er en ObservableObject
+    public partial class MainWindowViewModel : ViewModelBase
     {
-        private ParticipantViewModel _activeSpeaker;
+        // [ObservableProperty] laver automatisk 'ActiveSpeaker' property
+        // og håndterer OnPropertyChanged for dig.
+        [ObservableProperty]
+        private ParticipantViewModel? _activeSpeaker;
+
+        // Når IsMuted ændres, beder vi den også om at opdatere 'IsMutedIcon'
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsMutedIcon))]
         private bool _isMuted;
+
+        // VIGTIGT: Vi sætter default til 'true' her
+        // Når IsVideoOn ændres, opdateres 'IsVideoOnIcon' automatisk
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsVideoOnIcon))]
         private bool _isVideoOn = true;
-        private Timer _videoTimer;
+
+        private System.Threading.Timer? _videoTimer;
 
         public ObservableCollection<ParticipantViewModel> Participants { get; } = new();
 
-        public ParticipantViewModel ActiveSpeaker
-        {
-            get => _activeSpeaker;
-            set { _activeSpeaker = value; OnPropertyChanged(); }
-        }
-
-        public string IsMutedIcon => _isMuted ? "🔴" : "🎙️";
-        public string IsVideoOnIcon => _isVideoOn ? "📹" : "🚫";
+        // Computed properties (afhænger af variablerne ovenfor)
+        public string IsMutedIcon => IsMuted ? "🔴" : "🎙️";
+        public string IsVideoOnIcon => IsVideoOn ? "📹" : "🚫";
 
         public MainWindowViewModel()
         {
@@ -38,58 +40,56 @@ namespace DeskApp.ViewModels
             Participants.Add(new ParticipantViewModel("Lars Larsen", Colors.Blue));
             Participants.Add(new ParticipantViewModel("Mette Frederiksen", Colors.Red));
             Participants.Add(new ParticipantViewModel("Ole Opfinder", Colors.Green));
-            Participants.Add(new ParticipantViewModel("Dig (Mig)", Colors.Purple) { IsVideoOn = true });
 
-            // Sæt den første som "Active Speaker" (den store skærm)
+            // "Dig" starter med video tændt (matcher _isVideoOn = true)
+            var me = new ParticipantViewModel("Dig (Mig)", Colors.Purple)
+            {
+                IsVideoOn = true
+            };
+            Participants.Add(me);
+
             ActiveSpeaker = Participants[0];
 
-            // Start en "Fake Video Engine" for at simulere kamera-input
-            // I en rigtig app ville dette være WebRTC frames der kommer ind
-            _videoTimer = new Timer(SimulateIncomingVideoFrames, null, 0, 33); // Ca. 30 FPS
+            // Start fake video stream
+            _videoTimer = new System.Threading.Timer(SimulateIncomingVideoFrames, null, 0, 33);
         }
 
-        // --- Kommandoer til UI knapper ---
-        public void ToggleMuteCommand()
+        // [RelayCommand] laver automatisk en 'ToggleMuteCommand' som du kan binde til i XAML
+        [RelayCommand]
+        public void ToggleMute()
         {
-            _isMuted = !_isMuted;
-            OnPropertyChanged(nameof(IsMutedIcon));
+            IsMuted = !IsMuted;
         }
 
-        public void ToggleVideoCommand()
+        [RelayCommand]
+        public void ToggleVideo()
         {
-            _isVideoOn = !_isVideoOn;
-            OnPropertyChanged(nameof(IsVideoOnIcon));
+            IsVideoOn = !IsVideoOn;
 
-            // Opdater også "Min" deltager i listen
-            var me = Participants[3];
-            me.IsVideoOn = _isVideoOn;
+            // Find "Dig" i listen (index 3) og opdater også dens status
+            // Så det lille billede i bunden også slukker/tænder
+            if (Participants.Count > 3)
+            {
+                Participants[3].IsVideoOn = IsVideoOn;
+            }
         }
 
-        public void LeaveCallCommand()
+        [RelayCommand]
+        public void LeaveCall()
         {
             Environment.Exit(0);
         }
 
-        // --- SIMULERING AF VIDEO STREAM ---
-        // Dette er den vigtige del teknisk set. Vi skriver rå bytes til grafikkortet.
         private void SimulateIncomingVideoFrames(object? state)
         {
-            // Vi opdaterer kun UI på UI-tråden
             Dispatcher.UIThread.Post(() =>
             {
-                // Opdater Active Speaker (Stor skærm)
                 ActiveSpeaker?.UpdateVideoFrame();
-
-                // Opdater alle små billeder i bunden
                 foreach (var p in Participants)
                 {
                     if (p.IsVideoOn) p.UpdateVideoFrame();
                 }
             });
         }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string? name = null) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
