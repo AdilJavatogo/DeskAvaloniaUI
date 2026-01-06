@@ -1,20 +1,125 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:DeskApp.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:DeskApp.ViewModels"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="DeskApp.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="Desk App">
+        Title="Desk App"
+        >
 
     <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+  <Window.Styles>
+    <!-- Stil til runde knapper i bunden -->
+    <Style Selector="Button.ControlBtn">
+      <Setter Property="Width" Value="50"/>
+      <Setter Property="Height" Value="50"/>
+      <Setter Property="CornerRadius" Value="25"/>
+      <Setter Property="Margin" Value="10,0"/>
+      <Setter Property="Background" Value="#3C4043"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="FontSize" Value="20"/>
+    </Style>
+    <Style Selector="Button.ControlBtn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#505559"/>
+    </Style>
+    <Style Selector="Button.HangUp">
+      <Setter Property="Background" Value="#FF443D"/>
+    </Style>
+  </Window.Styles>
 
+  <Grid ColumnDefinitions="60, *" RowDefinitions="30, *">
+    
+    <!-- Custom Title Bar -->
+    <Border Grid.ColumnSpan="2" Grid.Row="0" Background="Transparent" IsHitTestVisible="False">
+      <TextBlock Text="Avalonia Meeting - Daily Standup" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
+    </Border>
+
+    <!-- Sidebar (Teams style) -->
+    <Border Grid.Row="1" Grid.Column="0" Background="#202124" BorderBrush="#303030" BorderThickness="0,0,1,0">
+      <StackPanel Spacing="20" Margin="0,20,0,0">
+        <!-- Ikoner (Bruger tekst her som placeholder for SVG ikoner) -->
+        <Border Width="40" Height="40" CornerRadius="8" Background="#8AB4F8" HorizontalAlignment="Center">
+          <TextBlock Text="📹" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="20"/>
+        </Border>
+        <TextBlock Text="💬" HorizontalAlignment="Center" FontSize="20" Foreground="#9AA0A6"/>
+        <TextBlock Text="👥" HorizontalAlignment="Center" FontSize="20" Foreground="#9AA0A6"/>
+        <TextBlock Text="⚙️" HorizontalAlignment="Center" FontSize="20" Foreground="#9AA0A6"/>
+      </StackPanel>
+    </Border>
+
+    <!-- Hovedområde -->
+    <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="*, Auto, 80" Margin="10">
+      
+      <!-- Active Speaker (Den store video) -->
+      <Border Grid.Row="0" CornerRadius="12" ClipToBounds="True" Background="Black" Margin="0,0,0,10">
+        <Grid>
+          <!-- Video Stream -->
+          <Image Source="{Binding ActiveSpeaker.VideoFrame}" Stretch="UniformToFill"/>
+          
+          <!-- Overlay med navn -->
+          <Border Background="#99000000" VerticalAlignment="Bottom" HorizontalAlignment="Left" CornerRadius="4" Margin="10" Padding="8,4">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+               <TextBlock Text="🎤" Foreground="LimeGreen" FontSize="12" VerticalAlignment="Center"/>
+               <TextBlock Text="{Binding ActiveSpeaker.Name}" Foreground="White" FontWeight="SemiBold"/>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Border>
+
+      <!-- Deltager Galleri (Bunden eller toppen) -->
+      <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <ItemsControl ItemsSource="{Binding Participants}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="10"/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <!-- Provide the item type so compiled bindings inside the template can be resolved -->
+            <DataTemplate x:DataType="vm:ParticipantViewModel">
+              <Border Width="160" Height="90" CornerRadius="8" ClipToBounds="True" Background="#303030">
+                <Grid>
+                  <!-- Lille video stream -->
+                  <Image Source="{Binding VideoFrame}" Stretch="UniformToFill" Opacity="{Binding IsVideoOn, Converter={x:Static ObjectConverters.IsNull}}"/>
+                  
+                  <!-- Placeholder hvis video er slukket -->
+                  <Panel IsVisible="{Binding IsVideoOn, Converter={StaticResource InverseBoolToVisibility}}">
+                     <Ellipse Width="40" Height="40" Fill="{Binding AvatarColor}"/>
+                     <TextBlock Text="{Binding Initials}" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="White" FontWeight="Bold"/>
+                  </Panel>
+
+                  <!-- Navn -->
+                  <TextBlock Text="{Binding Name}" VerticalAlignment="Bottom" Margin="5" Foreground="White" FontSize="10"/>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <!-- Kontrol Panel (Mute, Video, Hangup) -->
+      <Border Grid.Row="2" Background="#202124" CornerRadius="12" Margin="0,10,0,0" Padding="10">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Button Classes="ControlBtn" Command="{Binding ToggleMuteCommand}">
+             <TextBlock Text="{Binding IsMutedIcon}" />
+          </Button>
+          <Button Classes="ControlBtn" Command="{Binding ToggleVideoCommand}">
+             <TextBlock Text="{Binding IsVideoOnIcon}" />
+          </Button>
+          <Button Classes="ControlBtn" Content="💻" ToolTip.Tip="Del Skærm"/>
+          <Button Classes="ControlBtn" Content="✋" ToolTip.Tip="Ræk hånden op"/>
+          <Button Classes="ControlBtn HangUp" Command="{Binding LeaveCallCommand}" Content="📞"/>
+        </StackPanel>
+      </Border>
+      
+    </Grid>
+  </Grid>
 </Window>
