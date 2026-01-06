@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:DeskApp.ViewModels"
+        xmlns:u="using:DeskApp.Converters"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="DeskApp.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -13,6 +14,10 @@
     <Design.DataContext>
         <vm:MainWindowViewModel/>
     </Design.DataContext>
+
+    <Window.Resources>
+        <u:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
+    </Window.Resources>
 
   <Window.Styles>
     <!-- Stil til runde knapper i bunden -->
@@ -88,7 +93,7 @@
               <Border Width="160" Height="90" CornerRadius="8" ClipToBounds="True" Background="#303030">
                 <Grid>
                   <!-- Lille video stream -->
-                  <Image Source="{Binding VideoFrame}" Stretch="UniformToFill" Opacity="{Binding IsVideoOn, Converter={x:Static ObjectConverters.IsNull}}"/>
+                  <Image Source="{Binding VideoFrame}" Stretch="UniformToFill" IsVisible="{Binding IsVideoOn}"/>
                   
                   <!-- Placeholder hvis video er slukket -->
                   <Panel IsVisible="{Binding IsVideoOn, Converter={StaticResource InverseBoolToVisibility}}">

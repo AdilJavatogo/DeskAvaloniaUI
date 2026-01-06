@@ -2,11 +2,10 @@
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using CommunityToolkit.Mvvm.ComponentModel;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace DeskApp.ViewModels
 {
@@ -14,7 +13,7 @@ namespace DeskApp.ViewModels
     public class ParticipantViewModel : ViewModelBase
     {
         public string Name { get; }
-        public string Initials => Name.Substring(0, 1);
+        public string Initials => string.IsNullOrEmpty(Name) ? "?" : Name.Substring(0, 1);
         public IBrush AvatarColor { get; }
 
         private bool _isVideoOn = true;
@@ -34,14 +33,13 @@ namespace DeskApp.ViewModels
 
         // Variabler til animation (kun for demo skyld)
         private double _animOffset = 0;
-        private readonly Random _rnd = new Random();
 
         public ParticipantViewModel(string name, Color color)
         {
             Name = name;
             AvatarColor = new SolidColorBrush(color);
 
-            // Opret en tom bitmap (f.eks. 320x180 pixels for thumbnails)
+            // Opret en tom bitmap (320x180 pixels for thumbnails)
             // DPI 96 er standard
             VideoFrame = new WriteableBitmap(new PixelSize(320, 180), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
         }
@@ -49,41 +47,53 @@ namespace DeskApp.ViewModels
         // Denne metode kaldes 30 gange i sekundet for at tegne nyt "kamera" billede
         public unsafe void UpdateVideoFrame()
         {
+            // Lås bufferen
             using (var buf = VideoFrame.Lock())
             {
-                var ptr = (uint*)buf.Address;
                 int w = buf.Size.Width;
                 int h = buf.Size.Height;
 
-                // Demo Animation: En bevægende bar der skifter farve (Simulerer video)
+                // VIGTIGT: Hent Stride (RowBytes) fra bufferen. 
+                // Dette er antal bytes per række, som kan være større end bredde * 4.
+                int stride = buf.RowBytes;
+
+                // Start-pointer til hukommelsen (byte* for at kunne bruge stride korrekt)
+                byte* ptr = (byte*)buf.Address;
+
+                // Demo Animation logic
                 _animOffset += 5;
                 if (_animOffset > w) _animOffset = 0;
 
-                // Fyld pixels (Simpel rendering loop)
+                // Render loop
                 for (int y = 0; y < h; y++)
                 {
+                    // Beregn pointer til starten af denne række
+                    // Vi tager start-adressen og lægger (y * stride) til.
+                    // Så caster vi til uint* for at skrive hele pixels (4 bytes) ad gangen.
+                    uint* rowPtr = (uint*)(ptr + y * stride);
+
                     for (int x = 0; x < w; x++)
                     {
-                        // Baggrundsfarve (Mørkegrå støj)
+                        // Baggrundsfarve (Mørkegrå) - Format BGRA: AA RR GG BB (Little Endian)
+                        // 0xFF202020 -> Alpha=FF, Red=20, Green=20, Blue=20
                         uint color = 0xFF202020;
 
-                        // Tegn en bevægende stribe
+                        // Tegn rød stribe
                         if (x > _animOffset && x < _animOffset + 20)
                         {
-                            color = 0xFFFF0000; // Rød
+                            // Rød: 0xFFFF0000 -> Alpha=FF, Red=FF, Green=00, Blue=00
+                            color = 0xFFFF0000;
                         }
 
-                        // Skriv til hukommelsen
-                        ptr[y * w + x] = color;
+                        // Skriv pixel til hukommelsen
+                        // Da rowPtr allerede peger på starten af rækken, bruger vi bare [x]
+                        rowPtr[x] = color;
                     }
                 }
             }
+
             // Fortæl UI at dette billede skal tegnes igen
             OnPropertyChanged(nameof(VideoFrame));
         }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string? name = null) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
